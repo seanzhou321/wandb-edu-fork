@@ -10,10 +10,12 @@ import langchain
 import wandb
 from langchain.cache import SQLiteCache
 from langchain.docstore.document import Document
-from langchain.document_loaders import UnstructuredMarkdownLoader
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.document_loaders import UnstructuredMarkdownLoader
+from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import MarkdownTextSplitter
-from langchain.vectorstores import Chroma
+from langchain_chroma import Chroma
+
+from dotenv import load_dotenv
 
 langchain.llm_cache = SQLiteCache(database_path="langchain.db")
 
@@ -59,7 +61,7 @@ def chunk_documents(
 
 def create_vector_store(
     documents,
-    vector_store_path: str = "./vector_store",
+    vector_store_path: str = "../vector_store",
 ) -> Chroma:
     """Create a ChromaDB vector store from a list of documents
 
@@ -70,6 +72,8 @@ def create_vector_store(
     Returns:
         Chroma: A ChromaDB vector store containing the documents.
     """
+    os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+
     api_key = os.environ.get("OPENAI_API_KEY", None)
     embedding_function = OpenAIEmbeddings(openai_api_key=api_key)
     vector_store = Chroma.from_documents(
@@ -77,7 +81,8 @@ def create_vector_store(
         embedding=embedding_function,
         persist_directory=vector_store_path,
     )
-    vector_store.persist()
+    # Since Chroma 0.4.x the manual persistence method is no longer supported as docs are automatically persisted.
+    # vector_store.persist()
     return vector_store
 
 
@@ -151,7 +156,8 @@ def get_parser():
     parser.add_argument(
         "--docs_dir",
         type=str,
-        required=True,
+        # required=True,
+        default="../docs_sample",
         help="The directory containing the wandb documentation",
     )
     parser.add_argument(
@@ -169,7 +175,7 @@ def get_parser():
     parser.add_argument(
         "--vector_store",
         type=str,
-        default="./vector_store",
+        default="../vector_store",
         help="The directory to save or load the Chroma db to/from",
     )
     parser.add_argument(
@@ -189,6 +195,7 @@ def get_parser():
 
 
 def main():
+    load_dotenv()
     parser = get_parser()
     args = parser.parse_args()
     run = wandb.init(project=args.wandb_project, config=args)

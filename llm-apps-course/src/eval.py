@@ -8,11 +8,15 @@ import wandb
 from chain import load_chain, load_vector_store
 from config import default_config
 from langchain.chains import ConversationalRetrievalChain
-from langchain.chat_models import ChatOpenAI
-from langchain.evaluation.qa import QAEvalChain
+from langchain_openai import ChatOpenAI
+# from langchain.evaluation.qa import QAEvalChain (deprecated)
+from langchain.evaluation import load_evaluator
+from langchain.evaluation.criteria import LabeledCriteriaEvalChain
+
 from prompts import load_eval_prompt
 from tqdm import tqdm
 
+from dotenv import load_dotenv
 
 def load_eval_dataset(config: SimpleNamespace) -> pd.DataFrame:
     """Load a dataset of questions and answers from a Weights & Biases artifact
@@ -22,6 +26,7 @@ def load_eval_dataset(config: SimpleNamespace) -> pd.DataFrame:
         pd.DataFrame: A dataframe of questions and answers
     """
     # we will load data from a wandb Table  artifact
+    print(config.eval_artifact)
     artifact = wandb.use_artifact(config.eval_artifact)
     # download artifact
     artifact_dir = Path(artifact.download())
@@ -42,7 +47,7 @@ def generate_answers(
     """
     answers = []
     for query in tqdm(eval_dataset["question"], total=len(eval_dataset)):
-        result = qa_chain({"question": query, "chat_history": []})
+        result = qa_chain.invoke({"question": query, "chat_history": []})
         answers.append(result['answer'])
 
     eval_dataset["model_answer"] = answers
@@ -83,6 +88,12 @@ def evaluate_answers(
                 "result": eval_dataset["model_answer"].iloc[i],
             }
         )
+
+    criteria = {
+        "relevance": "Is the response relevant to the question?",
+        "coherence": "Is the response coherent and well-structured?",
+        "accuracy": "Does the response contain accurate information?",
+    }
     graded_outputs = eval_chain.evaluate(examples, predictions)
     eval_dataset["model_score"] = [x.get("text", "None") for x in graded_outputs]
     return eval_dataset
@@ -105,6 +116,7 @@ def log_results(eval_dataset: pd.DataFrame) -> None:
 
 
 if __name__ == "__main__":
+    load_dotenv()
     with wandb.init(project=default_config.project, config=default_config, job_type="eval") as run:
         eval_dataset = load_eval_dataset(default_config)
         vector_store = load_vector_store(run, os.environ["OPENAI_API_KEY"])

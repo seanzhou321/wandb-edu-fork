@@ -1,8 +1,10 @@
 wandb>=0.15.3
-openai==0.27.*
 pandas==1.5.*
 unstructured>=0.6.10
 langchain>=0.0.188
+langchain-openai
+# openai 1.44.0 and 1.44.1 cause AttributeError: module 'openai' has no attribute 'OpenAI'
+openai==1.43.1 
 gradio>=3.33.1
 gradio_client>=0.2.5
 tenacity>=8.2.2
@@ -11,3 +13,5 @@ rich>=13.0.1
 chromadb>=0.3.25
 pdf2image>=1.16.3
 tabulate>=0.9.0
+# pip install "unstructured[md]" (including the quotes)
+# pip install python-magic-bin in windows
